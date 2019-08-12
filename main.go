@@ -11,7 +11,7 @@ import (
 
 // Default config file directory and name.
 const (
-	defaultConfigDir  = ".shadowcrypt"
+	defaultConfigDir  = ".dynip"
 	defaultConfigFile = "dynip.conf"
 )
 

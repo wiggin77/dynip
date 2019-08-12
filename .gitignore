@@ -4,8 +4,7 @@
 *.so
 *.dylib
 debug
-shadowcrypt
-!shadowcrypt\
+dynip
 
 # Test binary, build with `go test -c`
 *.test

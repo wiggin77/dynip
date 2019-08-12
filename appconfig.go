@@ -68,7 +68,7 @@ func (config *AppConfig) ShadowDir() string {
 }
 */
 
-// verify all the required properties exist
+// Verify all the required properties exist
 func (config *AppConfig) verify() error {
 	// Check all required keys are present with non-empty values
 	for _, k := range keys {
