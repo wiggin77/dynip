@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/wiggin77/cfg"
 )
@@ -24,8 +25,10 @@ var (
 	keyMx              = configKey{name: "mx", def: "", req: false}
 	keyBackMx          = configKey{name: "backmx", def: "NO", req: false}
 	keyWildcard        = configKey{name: "wildcard", def: "OFF", req: false}
+	keyInterval        = configKey{name: "interval", def: "11 minutes", req: false}
 
-	keys = []configKey{keyProtocolVersion, keyURL, keyUsername, keyToken, keyHostname, keyTld, keyMyIP, keyMx, keyBackMx, keyWildcard}
+	keys = []configKey{keyProtocolVersion, keyURL, keyUsername, keyToken, keyHostname, keyTld,
+		keyMyIP, keyMx, keyBackMx, keyWildcard, keyInterval}
 )
 
 // AppConfig provides convenience methods for fetching ShadowCrypt
@@ -56,17 +59,11 @@ func NewAppConfig(file string) (*AppConfig, error) {
 	return config, err
 }
 
-// ShadowDir returns the shadow directory filespec
-/*
-func (config *AppConfig) ShadowDir() string {
-	sdir, err := config.String(AbsKeyShadowDir, "")
-	if err != nil {
-		panic(err)
-	}
-	return sdir
-
+// Hostname returns the hostname specified in config
+func (config *AppConfig) Hostname() string {
+	hostname, _ := config.String(keyHostname.name, keyHostname.def)
+	return hostname
 }
-*/
 
 // Verify all the required properties exist
 func (config *AppConfig) verify() error {
@@ -87,4 +84,23 @@ func (config *AppConfig) verify() error {
 	}
 	config.AppendSource(cfg.NewSrcMapFromMap(m))
 	return nil
+}
+
+// Dump returns a string containing all application config properties.
+func (config *AppConfig) Dump() string {
+	var sb strings.Builder
+	sep := ""
+	for _, k := range keys {
+		sb.WriteString(sep)
+		sb.WriteString(k.name)
+		sb.WriteString("=")
+		val, _ := config.String(k.name, "<missing>")
+		if val == "" {
+			sb.WriteString("\"\"")
+		} else {
+			sb.WriteString(val)
+		}
+		sep = ", "
+	}
+	return sb.String()
 }
