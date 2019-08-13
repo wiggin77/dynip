@@ -16,8 +16,9 @@ func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) er
 		logger.Errorf("invalid interval (%v); defaulting to 11 minutes", dur)
 		dur = time.Minute * 11
 	}
+	hostname := appConfig.Hostname()
 
-	logger.WithField("interval", dur).Info("Dynip daemon starting")
+	logger.WithFields(logrus.Fields{"interval": dur, "hostname": hostname}).Info("Dynip daemon starting")
 
 	ticker := time.NewTicker(dur)
 	defer ticker.Stop()
@@ -30,7 +31,7 @@ func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) er
 			logger.Info("Dynip daemon exiting: ", msg)
 			return nil
 		case <-ticker.C:
-			logger.WithField("hostname", appConfig.Hostname()).Info("Dynip updating IP")
+			logger.WithField("hostname", hostname).Info("Dynip updating IP")
 			updateIP(appConfig, logger)
 		}
 	}
