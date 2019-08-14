@@ -15,5 +15,5 @@ TODO
 ### Configure as service/daemon
 TODO
 
-## Building from source
+### Building from source
 TODO
