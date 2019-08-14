@@ -16,7 +16,7 @@ func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) er
 		logger.Errorf("invalid interval (%v); defaulting to 11 minutes", dur)
 		dur = time.Minute * 11
 	}
-	hostname := appConfig.Hostname()
+	hostname := appConfig.getKeyVal(keyHostname)
 
 	logger.WithFields(logrus.Fields{"interval": dur, "hostname": hostname}).Info("Dynip daemon starting")
 
