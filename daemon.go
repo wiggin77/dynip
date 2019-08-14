@@ -25,14 +25,30 @@ func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) er
 
 	go signalMon(exit)
 
+	var err error
+	var skip, skipCount int
+	//var maxSkips = (time.Hour * 24) / dur
 	for {
 		select {
 		case msg := <-exit:
 			logger.Info("Dynip daemon exiting: ", msg)
 			return nil
 		case <-ticker.C:
-			logger.WithField("hostname", hostname).Info("Dynip updating IP")
-			updateIP(appConfig, logger)
+			if skipCount >= skip {
+				skipCount = 0
+				logger.WithField("hostname", hostname).Info("Dynip updating IP")
+				err = updateIP(appConfig, logger)
+				if err != nil {
+					skip++
+				} else {
+					skip = 0
+				}
+			} else {
+				skipCount++
+				logger.WithFields(logrus.Fields{
+					"hostname":        hostname,
+					"skips_remaining": skip - skipCount}).Info("Skipping due to previous errors")
+			}
 		}
 	}
 }

@@ -95,9 +95,12 @@ func isFalse(s string) bool {
 
 func parseResponse(s string) (success bool, code string) {
 	if strings.Contains(s, "NOERROR") {
-		return true, "SUCCESS"
+		return true, "NOERROR"
 	}
-	if strings.Contains(s, "OK") {
+	if strings.Contains(s, ">OK<") {
+		if strings.Contains(s, " updated to ") {
+			return true, "SUCCESS"
+		}
 		return true, "NO_CHANGE"
 	}
 	if strings.Contains(s, "NOACCESS") {
