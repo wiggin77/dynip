@@ -103,10 +103,13 @@ func parseResponse(s string) (success bool, code string) {
 	if strings.Contains(s, "NOACCESS") {
 		return false, "NO_ACCESS"
 	}
+	if strings.Contains(s, "NO_AUTH") {
+		return false, "NO_AUTH"
+	}
 	if strings.Contains(s, "NOSERVICE") || strings.Contains(s, "NO_SERVICE") {
 		return false, "NO_SERVICE"
 	}
-	if strings.Contains(s, "ILLEGAL INPUT") {
+	if strings.Contains(s, "ILLEGAL INPUT") || strings.Contains(s, "ILLEGAL_INPUT") {
 		return false, "ILLEGAL_INPUT"
 	}
 	if strings.Contains(s, "TOOSOON") || strings.Contains(s, "TOO_FREQ") {
