@@ -27,7 +27,7 @@ func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) er
 
 	var err error
 	var skip, skipCount int
-	//var maxSkips = (time.Hour * 24) / dur
+	var maxSkips = int((time.Hour * 24) / dur)
 	for {
 		select {
 		case msg := <-exit:
@@ -38,10 +38,10 @@ func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) er
 				skipCount = 0
 				logger.WithField("hostname", hostname).Info("Dynip updating IP")
 				err = updateIP(appConfig, logger)
-				if err != nil {
-					skip++
-				} else {
+				if err == nil {
 					skip = 0
+				} else if skip < maxSkips {
+					skip++
 				}
 			} else {
 				skipCount++
