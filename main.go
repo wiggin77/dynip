@@ -84,7 +84,7 @@ func main() {
 		exit := make(chan string)
 		rerr = runDaemon(appConfig, logger, exit)
 	} else {
-		rerr = updateIP(appConfig, logger)
+		_, rerr = updateIP(appConfig, logger)
 	}
 	if rerr != nil {
 		exitCode = -1

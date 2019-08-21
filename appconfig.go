@@ -40,6 +40,7 @@ var (
 	keyBackMx          = configKey{name: "backmx", def: "NO", req: false, inc: NOTFALSE}
 	keyWildcard        = configKey{name: "wildcard", def: "OFF", req: false, inc: NOTFALSE}
 	keyInterval        = configKey{name: "interval", def: "11 minutes", req: false, inc: NEVER}
+	keyProto           = configKey{name: "proto", def: "https", req: false, inc: NEVER}
 
 	keysAll = []configKey{keyProtocolVersion, keyURL, keyUsername, keyToken, keyHostname, keyTld,
 		keyMyIP, keyMx, keyBackMx, keyWildcard, keyInterval}
@@ -67,6 +68,19 @@ func NewAppConfig(file string) (*AppConfig, error) {
 
 	// Verify all the required properties exist.
 	err = config.verify()
+	if err == nil {
+		config.verified = true
+	}
+	return config, err
+}
+
+// NewAppConfigFromMap creates an instance of AppConfig containing
+// a copy of the specified map elements.
+func NewAppConfigFromMap(m map[string]string) (*AppConfig, error) {
+	config := &AppConfig{verified: false}
+	src := cfg.NewSrcMapFromMap(m)
+	config.AppendSource(src)
+	err := config.verify()
 	if err == nil {
 		config.verified = true
 	}

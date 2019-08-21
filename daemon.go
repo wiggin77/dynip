@@ -18,7 +18,8 @@ func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) er
 	}
 	hostname := appConfig.getKeyVal(keyHostname)
 
-	logger.WithFields(logrus.Fields{"interval": dur, "hostname": hostname}).Info("Dynip daemon starting")
+	log := logger.WithFields(logrus.Fields{"interval": dur, "hostname": hostname})
+	log.Info("Dynip daemon starting")
 
 	ticker := time.NewTicker(dur)
 	defer ticker.Stop()
@@ -26,27 +27,29 @@ func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) er
 	go signalMon(exit)
 
 	var err error
+	var result Result
 	var skip, skipCount int
 	var maxSkips = int((time.Hour * 24) / dur)
 	for {
 		select {
 		case msg := <-exit:
-			logger.Info("Dynip daemon exiting: ", msg)
+			log.Info("Dynip daemon exiting: ", msg)
 			return nil
 		case <-ticker.C:
 			if skipCount >= skip {
 				skipCount = 0
-				logger.WithField("hostname", hostname).Info("Dynip updating IP")
-				err = updateIP(appConfig, logger)
+				log.Info("Dynip updating IP")
+				result, err = updateIP(appConfig, logger)
 				if err == nil {
 					skip = 0
+					log.WithFields(logrus.Fields{"result": result}).Info("ip update successful")
 				} else if skip < maxSkips {
 					skip++
+					log.WithFields(logrus.Fields{"result": result, "err": err}).Error("ip update failed")
 				}
 			} else {
 				skipCount++
-				logger.WithFields(logrus.Fields{
-					"hostname":        hostname,
+				log.WithFields(logrus.Fields{
 					"skips_remaining": skip - skipCount}).Info("Skipping due to previous errors")
 			}
 		}
