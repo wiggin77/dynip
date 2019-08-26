@@ -52,7 +52,7 @@ func main() {
 
 	// possibly install as service
 	if install {
-		err := installService()
+		err := serviceInstall()
 		if err != nil {
 			result.exitCode = -5
 			result.exitMsg = fmt.Sprintf("%v", err)

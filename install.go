@@ -14,11 +14,6 @@ type srvOpt struct {
 	pw     string
 }
 
-func installService() error {
-	// TODO
-	return fmt.Errorf("Not implemented yet")
-}
-
 func serviceInstall() error {
 	var err error
 	opt, err := parseCmdLine()
