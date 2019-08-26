@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log/syslog"
 	"os"
@@ -22,74 +23,109 @@ const (
 	defaultConfigFile = "dynip.conf"
 )
 
+type appResult struct {
+	exitCode int
+	exitMsg  string
+}
+
+type appLogger struct {
+	logrus.Logger
+	io.Closer
+}
+
 // Application entry point
 func main() {
-	var logger = log.New()
+	result := &appResult{}
+	var logger *logrus.Logger
+	defer exit(result, logger)
+
+	var fileConfig string
+	var daemon bool
+	var install bool
+	defFileConfig := defConfigFile()
+
+	// process command line flags
+	flag.StringVar(&fileConfig, "f", defFileConfig, "config file")
+	flag.BoolVar(&daemon, "d", false, "run as a daemon")
+	flag.BoolVar(&install, "i", false, "install as service/daemon")
+	flag.Parse()
+
+	// possibly install as service
+	if install {
+		err := installService()
+		if err != nil {
+			result.exitCode = -5
+			result.exitMsg = fmt.Sprintf("%v", err)
+		}
+		return
+	}
+
+	// load config file
+	appConfig, err := NewAppConfig(fileConfig)
+	if err != nil {
+		result.exitCode = -10
+		result.exitMsg = fmt.Sprintf("%v", err)
+		return
+	}
+
+	// configure logger
+	logger, err = configureLogging(appConfig)
+	if err != nil {
+		result.exitCode = -20
+		result.exitMsg = fmt.Sprintf("%v", err)
+		return
+	}
+	c, ok := logger.Out.(io.Closer)
+	if ok {
+		defer c.Close()
+	}
+
+	// run once, or continuously as daemon
+	var rerr error
+	if daemon {
+		exit := make(chan string)
+		runDaemon(appConfig, logger, exit)
+	} else {
+		_, rerr = updateIP(appConfig, logger)
+	}
+	if rerr != nil {
+		result.exitCode = -1
+		result.exitMsg = fmt.Sprintf("%v", rerr)
+	}
+}
+
+func configureLogging(cfg *AppConfig) (*logrus.Logger, error) {
+	file := cfg.getKeyVal(keyLogFile)
+	syslogger := isTrue(cfg.getKeyVal(keySyslog))
+	verbose := isTrue(cfg.getKeyVal(keyDebug))
+
+	logger := log.New()
 	logger.Level = log.InfoLevel
 	logger.Out = os.Stdout
 
-	var exitCode int
-	var exitMsg string
-	defer exit(&exitCode, &exitMsg, logger)
-
-	var fileConfig string
-	var fileLog string
-	var verbose bool
-	var daemon bool
-	var syslogger bool
-	defFileConfig := defConfigFile()
-
-	// Process command line flags
-	flag.StringVar(&fileConfig, "f", defFileConfig, "config file")
-	flag.StringVar(&fileLog, "l", "", "optional log file for output")
-	flag.BoolVar(&verbose, "v", false, "verbose output")
-	flag.BoolVar(&daemon, "d", false, "run as a daemon")
-	flag.BoolVar(&syslogger, "s", false, "log to syslog (Linux/*BSD/Mac only)")
-	flag.Parse()
-
-	// configure logging
-	if fileLog != "" {
-		if f, err := os.Create(fileLog); err != nil {
-			exitCode = -10
-			exitMsg = fmt.Sprintf("%v", err)
-		} else {
-			defer f.Close()
-			logger.Out = f
+	if file != "" {
+		f, err := os.Create(file)
+		if err != nil {
+			return nil, err
 		}
+		logger.Out = f
 	}
-	if syslogger && hasSysLog() {
+	if syslogger {
 		logger.Out = ioutil.Discard
 		if hasSysLog() {
 			hook, err := logrus_syslog.NewSyslogHook("", "", syslog.LOG_INFO, "dynip")
 			if err != nil {
-				exitCode = -20
-				exitMsg = "Cannot connect to syslog daemon"
+				return nil, err
 			}
 			logger.AddHook(hook)
+		} else {
+			return nil, fmt.Errorf("syslog not supported for %s", runtime.GOOS)
 		}
 	}
 	if verbose {
 		logger.Level = log.DebugLevel
 	}
-
-	// Load config file
-	appConfig, err := NewAppConfig(fileConfig)
-	if err != nil {
-		exitCode = -7
-		exitMsg = fmt.Sprintf("%v", err)
-	}
-
-	var rerr error
-	if daemon {
-		exit := make(chan string)
-		rerr = runDaemon(appConfig, logger, exit)
-	} else {
-		_, rerr = updateIP(appConfig, logger)
-	}
-	if rerr != nil {
-		exitCode = -1
-		exitMsg = fmt.Sprintf("%v", rerr)
-	}
+	return logger, nil
 }
 
 // Get the filespec for the default config file in user's home directory or /etc.
@@ -124,19 +160,19 @@ func hasSysLog() bool {
 }
 
 // Exit app with return code and optional error message.
-func exit(code *int, msg *string, logger *logrus.Logger) {
+func exit(result *appResult, logger *logrus.Logger) {
 	if r := recover(); r != nil {
 		logger.Panicf("Panic: %s\n%s", r, debug.Stack())
-		if *code == 0 {
-			*code = -1
+		if result.exitCode == 0 {
+			result.exitCode = -1
 		}
 	}
-	if len(*msg) > 0 {
-		if *code == 0 {
-			logger.Info(*msg)
+	if len(result.exitMsg) > 0 {
+		if result.exitCode == 0 {
+			logger.Info(result.exitMsg)
 		} else {
-			logger.Error(*msg)
+			logger.Error(result.exitMsg)
 		}
 	}
-	os.Exit(*code)
+	os.Exit(result.exitCode)
 }

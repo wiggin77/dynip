@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) error {
+func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) {
 	dur, _ := appConfig.Duration(keyInterval.name, time.Minute*11)
 	if dur <= time.Second {
 		logger.Errorf("invalid interval (%v); defaulting to 11 minutes", dur)
@@ -34,7 +34,7 @@ func runDaemon(appConfig *AppConfig, logger *logrus.Logger, exit chan string) er
 		select {
 		case msg := <-exit:
 			log.Info("Dynip daemon exiting: ", msg)
-			return nil
+			return
 		case <-ticker.C:
 			if skipCount >= skip {
 				skipCount = 0

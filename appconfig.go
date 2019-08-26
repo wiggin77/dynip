@@ -40,6 +40,9 @@ var (
 	keyBackMx          = configKey{name: "backmx", def: "NO", req: false, inc: NOTFALSE}
 	keyWildcard        = configKey{name: "wildcard", def: "OFF", req: false, inc: NOTFALSE}
 	keyInterval        = configKey{name: "interval", def: "11 minutes", req: false, inc: NEVER}
+	keyLogFile         = configKey{name: "log", def: "", req: false, inc: NEVER}
+	keySyslog          = configKey{name: "syslog", def: "NO", req: false, inc: NEVER}
+	keyDebug           = configKey{name: "debug", def: "NO", req: false, inc: NEVER}
 	keyProto           = configKey{name: "proto", def: "https", req: false, inc: NEVER}
 
 	keysAll = []configKey{keyProtocolVersion, keyURL, keyUsername, keyToken, keyHostname, keyTld,
@@ -117,6 +120,16 @@ func (config *AppConfig) verify() error {
 // getKeys returns a slice containing all config keys.
 func (config *AppConfig) getKeys() []configKey {
 	return keysAll
+}
+
+func isFalse(s string) bool {
+	s = strings.ToUpper(s)
+	return s == "NO" || s == "OFF" || s == "FALSE"
+}
+
+func isTrue(s string) bool {
+	s = strings.ToUpper(s)
+	return s == "YES" || s == "ON" || s == "TRUE"
 }
 
 // Dump returns a string containing all application config properties.

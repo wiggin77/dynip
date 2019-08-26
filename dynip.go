@@ -88,11 +88,6 @@ func shouldInc(rule incRule, val string) bool {
 	}
 }
 
-func isFalse(s string) bool {
-	s = strings.ToUpper(s)
-	return s == "NO" || s == "OFF" || s == "FALSE"
-}
-
 func parseResponse(s string) (success bool, result Result) {
 	if strings.Contains(s, ">OK<") || strings.Contains(s, ">NOERROR<") {
 		if strings.Contains(s, " updated to ") {
