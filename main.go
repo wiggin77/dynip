@@ -60,38 +60,41 @@ func main() {
 		return
 	}
 
-	// load config file
-	appConfig, err := NewAppConfig(fileConfig)
-	if err != nil {
-		result.exitCode = -10
-		result.exitMsg = fmt.Sprintf("%v", err)
+	// possibly run as a daemon
+	if daemon {
+		err := serviceRun()
+		if err != nil {
+			result.exitCode = -1
+			result.exitMsg = fmt.Sprintf("%v", err)
+		}
 		return
 	}
 
-	// configure logger
-	logger, err = configureLogging(appConfig)
+	err := runOnce(fileConfig)
 	if err != nil {
-		result.exitCode = -20
+		result.exitCode = -1
 		result.exitMsg = fmt.Sprintf("%v", err)
-		return
+	}
+}
+
+func runOnce(fileConfig string) error {
+	// load config file
+	appConfig, err := NewAppConfig(fileConfig)
+	if err != nil {
+		return err
+	}
+
+	// configure logger
+	logger, err := configureLogging(appConfig)
+	if err != nil {
+		return err
 	}
 	c, ok := logger.Out.(io.Closer)
 	if ok {
 		defer c.Close()
 	}
-
-	// run once, or continuously as daemon
-	var rerr error
-	if daemon {
-		exit := make(chan string)
-		runDaemon(appConfig, logger, exit)
-	} else {
-		_, rerr = updateIP(appConfig, logger)
-	}
-	if rerr != nil {
-		result.exitCode = -1
-		result.exitMsg = fmt.Sprintf("%v", rerr)
-	}
+	_, err = updateIP(appConfig, logger)
+	return err
 }
 
 func configureLogging(cfg *AppConfig) (*logrus.Logger, error) {

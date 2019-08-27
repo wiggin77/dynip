@@ -36,7 +36,9 @@ func (p *program) Start(s service.Service) error {
 		return err
 	}
 
-	go runDaemon(appConfig, p.logger, p.exit)
+	do := &daemonOpt{appConfig: appConfig, logger: p.logger, exit: p.exit}
+	go runDaemon(do)
+
 	return nil
 }
 

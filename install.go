@@ -20,9 +20,6 @@ func serviceInstall() error {
 
 	cfg := serviceConfig()
 	cfg.Arguments = serviceCmdLineArgs(opt)
-	if err != nil {
-		return fmt.Errorf("service install args: %v", err)
-	}
 	cfg.UserName = opt.user
 	if opt.pw != "" {
 		cfg.Option["Password"] = opt.pw
@@ -56,7 +53,7 @@ func serviceRun() error {
 	if err != nil {
 		return err
 	}
-	return srv.Run()
+	return srv.Run() // blocks until Stop()
 }
 
 func serviceConfig() *service.Config {

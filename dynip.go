@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -11,6 +12,17 @@ import (
 )
 
 func updateIP(appConfig *AppConfig, logger *logrus.Logger) (Result, error) {
+	var err error
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Panicf("Panic: %s\n%s", r, debug.Stack())
+			var ok bool
+			err, ok = r.(error)
+			if !ok {
+				err = fmt.Errorf("%v", r)
+			}
+		}
+	}()
 
 	log := logger.WithField("hostname", appConfig.getKeyVal(keyHostname))
 	timeout := time.Second * 90
