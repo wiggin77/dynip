@@ -49,7 +49,7 @@ func (p *program) Stop(s service.Service) error {
 	if p.logger != nil {
 		c, ok := p.logger.Out.(io.Closer)
 		if ok {
-			c.Close()
+			_ = c.Close()
 		}
 	}
 	// Stop should not block. Return within a few seconds.

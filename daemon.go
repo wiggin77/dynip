@@ -16,6 +16,7 @@ type daemonOpt struct {
 	exit      chan string
 }
 
+// runDaemon loops on updateIP until daemonOpt.exit channel is signaled.
 func runDaemon(do *daemonOpt) {
 	dur, _ := do.appConfig.Duration(keyInterval.name, time.Minute*11)
 	if dur <= time.Second {

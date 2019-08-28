@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// updateIP makes one HTTP(S) request to Dynamic IP server then returns the result.
 func updateIP(appConfig *AppConfig, logger *logrus.Logger) (Result, error) {
 	var err error
 	defer func() {
@@ -43,7 +44,7 @@ func updateIP(appConfig *AppConfig, logger *logrus.Logger) (Result, error) {
 	if err != nil {
 		return LOCALERROR, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -147,7 +148,7 @@ const (
 	// NOPARTNER means the request did not include required partner information
 	// or there was an error detecting the partner.
 	NOPARTNER Result = "NO_PARTNER"
-	// SERVERERROR means a generic error occured on the server
+	// SERVERERROR means a generic error occurred on the server
 	SERVERERROR Result = "SERVER_ERROR"
 	// UNKNOWN means the response contained none of the known result codes
 	UNKNOWN Result = "UNKNOWN_RESPONSE"

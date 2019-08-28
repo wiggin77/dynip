@@ -17,6 +17,9 @@ type srvOpt struct {
 func serviceInstall() error {
 	var err error
 	opt, err := parseCmdLine()
+	if err != nil {
+		return err
+	}
 
 	cfg := serviceConfig()
 	cfg.Arguments = serviceCmdLineArgs(opt)

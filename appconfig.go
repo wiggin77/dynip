@@ -42,7 +42,7 @@ var (
 	keyInterval        = configKey{name: "interval", def: "11 minutes", req: false, inc: NEVER}
 	keyLogFile         = configKey{name: "log", def: "", req: false, inc: NEVER}
 	keySyslog          = configKey{name: "syslog", def: "NO", req: false, inc: NEVER}
-	keyDebug           = configKey{name: "debug", def: "NO", req: false, inc: NEVER}
+	keyVerbose         = configKey{name: "verbose", def: "NO", req: false, inc: NEVER}
 	keyProto           = configKey{name: "proto", def: "https", req: false, inc: NEVER}
 
 	keysAll = []configKey{keyProtocolVersion, keyURL, keyUsername, keyToken, keyHostname, keyTld,

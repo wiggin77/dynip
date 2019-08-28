@@ -14,7 +14,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
-	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
+	logrussyslog "github.com/sirupsen/logrus/hooks/syslog"
+	"github.com/wiggin77/cfg"
 )
 
 // Default config file directory and name.
@@ -28,11 +29,6 @@ type appResult struct {
 	exitMsg  string
 }
 
-type appLogger struct {
-	logrus.Logger
-	io.Closer
-}
-
 // Application entry point
 func main() {
 	result := &appResult{}
@@ -41,13 +37,17 @@ func main() {
 
 	var fileConfig string
 	var daemon bool
+	var verbose bool
 	var install bool
+	var uninstall bool
 	defFileConfig := defConfigFile()
 
 	// process command line flags
 	flag.StringVar(&fileConfig, "f", defFileConfig, "config file")
 	flag.BoolVar(&daemon, "d", false, "run as a daemon")
+	flag.BoolVar(&verbose, "v", false, "overrides verbose setting in config (interactive only)")
 	flag.BoolVar(&install, "i", false, "install as service/daemon")
+	flag.BoolVar(&uninstall, "u", false, "uninstall service/daemon")
 	flag.Parse()
 
 	// possibly install as service
@@ -55,6 +55,16 @@ func main() {
 		err := serviceInstall()
 		if err != nil {
 			result.exitCode = -5
+			result.exitMsg = fmt.Sprintf("%v", err)
+		}
+		return
+	}
+
+	// possibly uninstall
+	if uninstall {
+		err := serviceUninstall()
+		if err != nil {
+			result.exitCode = -6
 			result.exitMsg = fmt.Sprintf("%v", err)
 		}
 		return
@@ -70,18 +80,24 @@ func main() {
 		return
 	}
 
-	err := runOnce(fileConfig)
+	err := runOnce(fileConfig, verbose)
 	if err != nil {
 		result.exitCode = -1
 		result.exitMsg = fmt.Sprintf("%v", err)
 	}
 }
 
-func runOnce(fileConfig string) error {
+func runOnce(fileConfig string, verbose bool) error {
 	// load config file
 	appConfig, err := NewAppConfig(fileConfig)
 	if err != nil {
 		return err
+	}
+
+	// if verbose specified on command line it overrides config
+	if verbose {
+		src := cfg.NewSrcMapFromMap(map[string]string{"verbose": "YES"})
+		appConfig.PrependSource(src)
 	}
 
 	// configure logger
@@ -91,7 +107,7 @@ func runOnce(fileConfig string) error {
 	}
 	c, ok := logger.Out.(io.Closer)
 	if ok {
-		defer c.Close()
+		defer func() { _ = c.Close() }()
 	}
 	_, err = updateIP(appConfig, logger)
 	return err
@@ -100,7 +116,7 @@ func runOnce(fileConfig string) error {
 func configureLogging(cfg *AppConfig) (*logrus.Logger, error) {
 	file := cfg.getKeyVal(keyLogFile)
 	syslogger := isTrue(cfg.getKeyVal(keySyslog))
-	verbose := isTrue(cfg.getKeyVal(keyDebug))
+	verbose := isTrue(cfg.getKeyVal(keyVerbose))
 
 	logger := log.New()
 	logger.Level = log.InfoLevel
@@ -116,7 +132,7 @@ func configureLogging(cfg *AppConfig) (*logrus.Logger, error) {
 	if syslogger {
 		logger.Out = ioutil.Discard
 		if hasSysLog() {
-			hook, err := logrus_syslog.NewSyslogHook("", "", syslog.LOG_INFO, "dynip")
+			hook, err := logrussyslog.NewSyslogHook("", "", syslog.LOG_INFO, "dynip")
 			if err != nil {
 				return nil, err
 			}
@@ -149,12 +165,12 @@ func defConfigFile() string {
 
 // Get user's home directory.
 func homePath() (string, error) {
-	var path string
+	var p string
 	me, err := user.Current()
 	if err == nil {
-		path = me.HomeDir
+		p = me.HomeDir
 	}
-	return path, err
+	return p, err
 }
 
 // Best guess determination for syslog support.
