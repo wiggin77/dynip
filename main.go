@@ -32,8 +32,7 @@ type appResult struct {
 // Application entry point
 func main() {
 	result := &appResult{}
-	var logger *logrus.Logger
-	defer exit(result, logger)
+	defer exit(result)
 
 	var fileConfig string
 	var daemon bool
@@ -56,6 +55,8 @@ func main() {
 		if err != nil {
 			result.exitCode = -5
 			result.exitMsg = fmt.Sprintf("%v", err)
+		} else {
+			result.exitMsg = "install successful"
 		}
 		return
 	}
@@ -66,6 +67,8 @@ func main() {
 		if err != nil {
 			result.exitCode = -6
 			result.exitMsg = fmt.Sprintf("%v", err)
+		} else {
+			result.exitMsg = "uninstall successful"
 		}
 		return
 	}
@@ -179,19 +182,20 @@ func hasSysLog() bool {
 }
 
 // Exit app with return code and optional error message.
-func exit(result *appResult, logger *logrus.Logger) {
+func exit(result *appResult) {
+
 	if r := recover(); r != nil {
-		logger.Panicf("Panic: %s\n%s", r, debug.Stack())
+		fmt.Fprintf(os.Stderr, "Panic: %s\n%s", r, debug.Stack())
 		if result.exitCode == 0 {
 			result.exitCode = -1
 		}
 	}
 	if len(result.exitMsg) > 0 {
-		if result.exitCode == 0 {
-			logger.Info(result.exitMsg)
-		} else {
-			logger.Error(result.exitMsg)
+		out := os.Stdout
+		if result.exitCode != 0 {
+			out = os.Stderr
 		}
+		fmt.Fprintf(out, "%s\n", result.exitMsg)
 	}
 	os.Exit(result.exitCode)
 }

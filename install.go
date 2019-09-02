@@ -9,9 +9,10 @@ import (
 )
 
 type srvOpt struct {
-	config string
-	user   string
-	pw     string
+	install bool
+	config  string
+	user    string
+	pw      string
 }
 
 func serviceInstall() error {
@@ -72,7 +73,8 @@ func serviceConfig() *service.Config {
 func serviceCmdLineArgs(opt *srvOpt) []string {
 	arr := []string{"-d"}
 	if opt.config != "" {
-		arr = append(arr, fmt.Sprintf("-f %s", opt.config))
+		arr = append(arr, "-f")
+		arr = append(arr, opt.config)
 	}
 	return arr
 }
@@ -80,6 +82,7 @@ func serviceCmdLineArgs(opt *srvOpt) []string {
 func parseCmdLine() (*srvOpt, error) {
 	opt := srvOpt{}
 	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	fs.BoolVar(&opt.install, "i", false, "install as service/daemon")
 	fs.StringVar(&opt.config, "f", defConfigFile(), "config file")
 	fs.StringVar(&opt.user, "user", "", "user account name to run service")
 	fs.StringVar(&opt.pw, "pw", "", "password of user account to run service")
