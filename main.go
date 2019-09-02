@@ -20,6 +20,7 @@ import (
 
 // Default config file directory and name.
 const (
+	appVersion        = "Dynip v1.0.0"
 	defaultConfigDir  = ".config/dynip"
 	defaultConfigFile = "dynip.conf"
 )
@@ -39,6 +40,8 @@ func main() {
 	var verbose bool
 	var install bool
 	var uninstall bool
+	var version bool
+	var help bool
 	defFileConfig := defConfigFile()
 
 	// process command line flags
@@ -47,7 +50,21 @@ func main() {
 	flag.BoolVar(&verbose, "v", false, "overrides verbose setting in config (interactive only)")
 	flag.BoolVar(&install, "i", false, "install as service/daemon")
 	flag.BoolVar(&uninstall, "u", false, "uninstall service/daemon")
+	flag.BoolVar(&version, "version", false, "display version info")
+	flag.BoolVar(&help, "h", false, "display help")
 	flag.Parse()
+
+	// possibly display help
+	if help {
+		flag.PrintDefaults()
+		return
+	}
+
+	// possibly display version info
+	if version {
+		fmt.Println(appVersion)
+		return
+	}
 
 	// possibly install as service
 	if install {
