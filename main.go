@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log/syslog"
 	"os"
 	"os/user"
 	"path"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
-	logrussyslog "github.com/sirupsen/logrus/hooks/syslog"
 	"github.com/wiggin77/cfg"
 )
 
@@ -152,11 +150,13 @@ func configureLogging(cfg *AppConfig) (*logrus.Logger, error) {
 	if syslogger {
 		logger.Out = ioutil.Discard
 		if hasSysLog() {
-			hook, err := logrussyslog.NewSyslogHook("", "", syslog.LOG_INFO, "dynip")
+			hook, err := syslogHook("dynip")
 			if err != nil {
 				return nil, err
 			}
-			logger.AddHook(hook)
+			if hook != nil {
+				logger.AddHook(hook)
+			}
 		} else {
 			return nil, fmt.Errorf("syslog not supported for %s", runtime.GOOS)
 		}
