@@ -42,7 +42,7 @@ Dynip can install itself automatically to run as a service on most Linux systems
 
       ```bash
       # this will install dynip as a service
-      sudo /usr/local/bin/dynip -i
+      sudo /usr/local/bin/dynip -i -f /etc/dynip.conf
 
       # start the service
       sudo service dynip start
@@ -65,8 +65,15 @@ Dynip can install itself automatically to run as a service on Windows 7 or later
 
       ```powershell
       # this will install dynip as a service
-      # substitute `username` and `password` for actual credentials
-      dynip.exe -i -user username -pw password
+      dynip.exe -i -f c:\dynip\dynip.conf
+      ```
+
+      or
+
+      ```powershell
+      # this will install dynip as a service to run as a specific user
+      # `username` and `password` for actual credentials
+      dynip.exe -i -f c:\dynip\dynip.conf -user username -pw password
       ```
 
 4. Press Windows+R to open the “Run” box. Type “services.msc” into the box and then press enter to open Windows Services Manager. Ensure the Start-up Type for dynip is "Automatic". Right click on dynip and select "Start".
@@ -77,7 +84,7 @@ Not yet tested, but this should work on a relatively recent version of OSX.
 
 ```bash
 # this will install dynip as a service
-sudo dynip.exe -i
+sudo dynip.exe -i -f /etc/dynip.conf
 ```
 
 ### Other

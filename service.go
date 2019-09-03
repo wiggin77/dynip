@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"io"
 	"log"
+	"os"
 
 	"github.com/sirupsen/logrus"
 
@@ -24,8 +26,19 @@ func (p *program) Start(s service.Service) error {
 
 	p.exit = make(chan string, 2)
 
+	// get config file name
+	var file string
+	var daemon bool
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	fs.StringVar(&file, "f", defConfigFile(), "config file")
+	fs.BoolVar(&daemon, "d", false, "run as a daemon")
+	err := fs.Parse(os.Args[1:])
+	if err != nil {
+		return err
+	}
+
 	// load config file
-	appConfig, err := NewAppConfig(defConfigFile())
+	appConfig, err := NewAppConfig(file)
 	if err != nil {
 		return err
 	}
