@@ -1,6 +1,5 @@
 # dynip
 
-[![GoDoc](https://godoc.org/github.com/wiggin77/dynip?status.svg)](https://godoc.org/github.com/wiggin77/dynip)
 [![Build Status](https://travis-ci.org/wiggin77/dynip.svg?branch=master)](https://travis-ci.org/wiggin77/dynip)
 
 Client for easyDNS Dynamic DNS service.
