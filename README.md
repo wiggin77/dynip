@@ -8,7 +8,7 @@ Client for easyDNS Dynamic DNS service.
 
 "Dynamic DNS service is used to keep a domain name pointing to the same computer or server connected to the Internet despite the fact that the address (IP address) of the computer keeps changing. This service is useful to anyone who wants to operate a server (web server, mail server, ftp server, irc server etc) connected to the Internet with a dynamic IP or for someone who wants to connect to an office computer or server from a remote location with software such as pcAnywhere."
 
-Prebuilt binaries available for Windows, macOS and Linux (amd64) [here.](https://github.com/wiggin77/dynip/releases)
+Prebuilt binaries available for Windows (amd64), macOS (amd64 and Apple Silicon arm64), Linux (amd64 and arm64) and OpenBSD (amd64) [here.](https://github.com/wiggin77/dynip/releases) Each release includes a `SHA256SUMS` file for verifying downloads.
 
 ## Usage
 
@@ -146,4 +146,4 @@ Running as a service (`-i` and `-d`) requires a service manager that dynip suppo
 
 3. Run `go build`.
 
-To cross-compile amd64 binaries for Linux, Windows, macOS and OpenBSD into `./build/`, run `./build.sh`.
+To cross-compile the release binaries (Linux and macOS amd64/arm64, Windows and OpenBSD amd64) into `./build/`, run `./build.sh`.
