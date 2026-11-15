@@ -1,6 +1,6 @@
 # dynip
 
-[![Build Status](https://travis-ci.org/wiggin77/dynip.svg?branch=master)](https://travis-ci.org/wiggin77/dynip)
+[![CI](https://github.com/wiggin77/dynip/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/wiggin77/dynip/actions/workflows/ci.yml)
 
 Client for easyDNS Dynamic DNS service.
 
@@ -93,11 +93,11 @@ sudo dynip.exe -i -f /etc/dynip.conf
 
 ### Other
 
-Dynip should work on any platform supported by Go 1.11.x or later. Follow the instructions below to build dynip for your platform. You can then install as a service manually
+Dynip should work on any platform supported by Go 1.26.3 or later. Follow the instructions below to build dynip for your platform. You can then install as a service manually
 
 ## Building from source
 
-1. Install [Go 1.11.x](https://golang.org/dl/) or newer.
+1. Install [Go 1.26.3](https://golang.org/dl/) or newer.
 
 2. Clone this repo to your local machine.
 

@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -12,11 +13,11 @@ import (
 )
 
 // updateIP makes one HTTP(S) request to Dynamic IP server then returns the result.
-func updateIP(appConfig *AppConfig, logger *logrus.Logger) (Result, error) {
-	var err error
+func updateIP(appConfig *AppConfig, logger *logrus.Logger) (result Result, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Panicf("Panic: %s\n%s", r, debug.Stack())
+			logger.Errorf("Panic: %v\n%s", r, debug.Stack())
+			result = LOCALERROR
 			var ok bool
 			err, ok = r.(error)
 			if !ok {
@@ -31,14 +32,17 @@ func updateIP(appConfig *AppConfig, logger *logrus.Logger) (Result, error) {
 		Timeout: timeout,
 	}
 
-	url := makeURL(appConfig)
-
-	req, err := http.NewRequest("GET", url, nil)
+	u, err := makeURL(appConfig)
 	if err != nil {
 		return LOCALERROR, err
 	}
 
-	log.Debug("request: ", url)
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return LOCALERROR, err
+	}
+
+	log.Debug("request: ", u.Redacted())
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -46,7 +50,7 @@ func updateIP(appConfig *AppConfig, logger *logrus.Logger) (Result, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return LOCALERROR, err
 	}
@@ -61,29 +65,24 @@ func updateIP(appConfig *AppConfig, logger *logrus.Logger) (Result, error) {
 	return result, nil
 }
 
-func makeURL(appConfig *AppConfig) string {
-	var sb strings.Builder
+// makeURL parses only proto and url before adding credentials, so a parse
+// error cannot leak the token.
+func makeURL(appConfig *AppConfig) (*url.URL, error) {
+	u, err := url.Parse(appConfig.getKeyVal(keyProto) + "://" + appConfig.getKeyVal(keyURL))
+	if err != nil {
+		return nil, err
+	}
+	u.User = url.UserPassword(appConfig.getKeyVal(keyUsername), appConfig.getKeyVal(keyToken))
 
-	sb.WriteString(appConfig.getKeyVal(keyProto))
-	sb.WriteString("://")
-	sb.WriteString(appConfig.getKeyVal(keyUsername))
-	sb.WriteString(":")
-	sb.WriteString(appConfig.getKeyVal(keyToken))
-	sb.WriteString("@")
-	sb.WriteString(appConfig.getKeyVal(keyURL))
-	sb.WriteString("?")
-
-	keys := appConfig.getKeys()
-	for _, k := range keys {
+	q := url.Values{}
+	for _, k := range appConfig.getKeys() {
 		val := appConfig.getKeyVal(k)
 		if shouldInc(k.inc, val) {
-			sb.WriteString(k.name)
-			sb.WriteString("=")
-			sb.WriteString(val)
-			sb.WriteString("&")
+			q.Set(k.name, val)
 		}
 	}
-	return sb.String()
+	u.RawQuery = q.Encode()
+	return u, nil
 }
 
 func shouldInc(rule incRule, val string) bool {

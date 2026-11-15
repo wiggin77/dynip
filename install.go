@@ -1,29 +1,19 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"os"
+	"path/filepath"
 
 	"github.com/kardianos/service"
 )
 
-type srvOpt struct {
-	install bool
-	config  string
-	user    string
-	pw      string
-}
-
-func serviceInstall() error {
-	var err error
-	opt, err := parseCmdLine()
+func serviceInstall(opt *cmdOpts) error {
+	args, err := serviceCmdLineArgs(opt.config)
 	if err != nil {
-		return err
+		return fmt.Errorf("service install: %v", err)
 	}
-
 	cfg := serviceConfig()
-	cfg.Arguments = serviceCmdLineArgs(opt)
+	cfg.Arguments = args
 	cfg.UserName = opt.user
 	if opt.pw != "" {
 		cfg.Option["Password"] = opt.pw
@@ -50,9 +40,9 @@ func serviceUninstall() error {
 	return srv.Uninstall()
 }
 
-func serviceRun() error {
+func serviceRun(configFile string) error {
 	cfg := serviceConfig()
-	prg := &program{}
+	prg := &program{configFile: configFile}
 	srv, err := service.New(prg, cfg)
 	if err != nil {
 		return err
@@ -65,27 +55,21 @@ func serviceConfig() *service.Config {
 		Name:        "dynip",
 		DisplayName: "dynip",
 		Description: "Dynamic IP update service",
-		Option:      make(map[string]interface{}),
+		Option:      make(map[string]any),
 	}
 	return cfg
 }
 
-func serviceCmdLineArgs(opt *srvOpt) []string {
+// serviceCmdLineArgs makes configFile absolute because the service manager
+// does not start the service in the installer's working directory.
+func serviceCmdLineArgs(configFile string) ([]string, error) {
 	arr := []string{"-d"}
-	if opt.config != "" {
-		arr = append(arr, "-f")
-		arr = append(arr, opt.config)
+	if configFile != "" {
+		abs, err := filepath.Abs(configFile)
+		if err != nil {
+			return nil, err
+		}
+		arr = append(arr, "-f", abs)
 	}
-	return arr
-}
-
-func parseCmdLine() (*srvOpt, error) {
-	opt := srvOpt{}
-	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	fs.BoolVar(&opt.install, "i", false, "install as service/daemon")
-	fs.StringVar(&opt.config, "f", defConfigFile(), "config file")
-	fs.StringVar(&opt.user, "user", "", "user account name to run service")
-	fs.StringVar(&opt.pw, "pw", "", "password of user account to run service")
-	err := fs.Parse(os.Args[1:])
-	return &opt, err
+	return arr, nil
 }
