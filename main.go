@@ -1,10 +1,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
@@ -18,7 +18,7 @@ import (
 
 // Default config file directory and name.
 const (
-	appVersion        = "Dynip v1.0.0"
+	appVersion        = "Dynip v1.1.0"
 	defaultConfigDir  = ".config/dynip"
 	defaultConfigFile = "dynip.conf"
 )
@@ -28,45 +28,46 @@ type appResult struct {
 	exitMsg  string
 }
 
+type cmdOpts struct {
+	config    string
+	daemon    bool
+	verbose   bool
+	install   bool
+	uninstall bool
+	version   bool
+	help      bool
+	user      string
+	pw        string
+}
+
 // Application entry point
 func main() {
 	result := &appResult{}
 	defer exit(result)
 
-	var fileConfig string
-	var daemon bool
-	var verbose bool
-	var install bool
-	var uninstall bool
-	var version bool
-	var help bool
-	defFileConfig := defConfigFile()
-
-	// process command line flags
-	flag.StringVar(&fileConfig, "f", defFileConfig, "config file")
-	flag.BoolVar(&daemon, "d", false, "run as a daemon")
-	flag.BoolVar(&verbose, "v", false, "overrides verbose setting in config (interactive only)")
-	flag.BoolVar(&install, "i", false, "install as service/daemon")
-	flag.BoolVar(&uninstall, "u", false, "uninstall service/daemon")
-	flag.BoolVar(&version, "version", false, "display version info")
-	flag.BoolVar(&help, "h", false, "display help")
-	flag.Parse()
+	opts, fs, err := parseFlags(os.Args[0], os.Args[1:], os.Stderr)
+	if err != nil {
+		if !errors.Is(err, flag.ErrHelp) {
+			result.exitCode = 2
+		}
+		return
+	}
 
 	// possibly display help
-	if help {
-		flag.PrintDefaults()
+	if opts.help {
+		fs.PrintDefaults()
 		return
 	}
 
 	// possibly display version info
-	if version {
+	if opts.version {
 		fmt.Println(appVersion)
 		return
 	}
 
 	// possibly install as service
-	if install {
-		err := serviceInstall()
+	if opts.install {
+		err := serviceInstall(opts)
 		if err != nil {
 			result.exitCode = -5
 			result.exitMsg = fmt.Sprintf("%v", err)
@@ -77,7 +78,7 @@ func main() {
 	}
 
 	// possibly uninstall
-	if uninstall {
+	if opts.uninstall {
 		err := serviceUninstall()
 		if err != nil {
 			result.exitCode = -6
@@ -89,8 +90,8 @@ func main() {
 	}
 
 	// possibly run as a daemon
-	if daemon {
-		err := serviceRun()
+	if opts.daemon {
+		err := serviceRun(opts.config)
 		if err != nil {
 			result.exitCode = -1
 			result.exitMsg = fmt.Sprintf("%v", err)
@@ -98,18 +99,35 @@ func main() {
 		return
 	}
 
-	err := runOnce(fileConfig, verbose)
+	res, err := runOnce(opts.config, opts.verbose)
+	result.exitMsg = resultMessage(res, err)
 	if err != nil {
 		result.exitCode = -1
-		result.exitMsg = fmt.Sprintf("%v", err)
 	}
 }
 
-func runOnce(fileConfig string, verbose bool) error {
+func parseFlags(name string, args []string, output io.Writer) (*cmdOpts, *flag.FlagSet, error) {
+	opts := &cmdOpts{}
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.SetOutput(output)
+	fs.StringVar(&opts.config, "f", defConfigFile(), "config file")
+	fs.BoolVar(&opts.daemon, "d", false, "run as a daemon")
+	fs.BoolVar(&opts.verbose, "v", false, "overrides verbose setting in config (interactive only)")
+	fs.BoolVar(&opts.install, "i", false, "install as service/daemon")
+	fs.BoolVar(&opts.uninstall, "u", false, "uninstall service/daemon")
+	fs.BoolVar(&opts.version, "version", false, "display version info")
+	fs.BoolVar(&opts.help, "h", false, "display help")
+	fs.StringVar(&opts.user, "user", "", "user account name to run service (with -i)")
+	fs.StringVar(&opts.pw, "pw", "", "password of user account to run service (with -i)")
+	err := fs.Parse(args)
+	return opts, fs, err
+}
+
+func runOnce(fileConfig string, verbose bool) (Result, error) {
 	// load config file
 	appConfig, err := NewAppConfig(fileConfig)
 	if err != nil {
-		return err
+		return LOCALERROR, err
 	}
 
 	// if verbose specified on command line it overrides config
@@ -119,19 +137,22 @@ func runOnce(fileConfig string, verbose bool) error {
 	}
 
 	// configure logger
-	logger, err := configureLogging(appConfig)
+	logger, closeLog, err := configureLogging(appConfig)
 	if err != nil {
-		return err
+		return LOCALERROR, err
 	}
-	c, ok := logger.Out.(io.Closer)
-	if ok {
-		defer func() { _ = c.Close() }()
-	}
-	_, err = updateIP(appConfig, logger)
-	return err
+	defer closeLog()
+	return updateIP(appConfig, logger)
 }
 
-func configureLogging(cfg *AppConfig) (*logrus.Logger, error) {
+func resultMessage(res Result, err error) string {
+	if err == nil || err.Error() == string(res) {
+		return string(res)
+	}
+	return fmt.Sprintf("%s: %v", res, err)
+}
+
+func configureLogging(cfg *AppConfig) (*logrus.Logger, func(), error) {
 	file := cfg.getKeyVal(keyLogFile)
 	syslogger := isTrue(cfg.getKeyVal(keySyslog))
 	verbose := isTrue(cfg.getKeyVal(keyVerbose))
@@ -139,32 +160,33 @@ func configureLogging(cfg *AppConfig) (*logrus.Logger, error) {
 	logger := log.New()
 	logger.Level = log.InfoLevel
 	logger.Out = os.Stdout
+	closeLog := func() {}
 
-	if file != "" {
-		f, err := os.Create(file)
+	switch {
+	case syslogger:
+		if !hasSysLog() {
+			return nil, nil, fmt.Errorf("syslog not supported for %s", runtime.GOOS)
+		}
+		hook, err := syslogHook("dynip")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		if hook != nil {
+			logger.AddHook(hook)
+		}
+		logger.Out = io.Discard
+	case file != "":
+		f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			return nil, nil, err
 		}
 		logger.Out = f
-	}
-	if syslogger {
-		logger.Out = ioutil.Discard
-		if hasSysLog() {
-			hook, err := syslogHook("dynip")
-			if err != nil {
-				return nil, err
-			}
-			if hook != nil {
-				logger.AddHook(hook)
-			}
-		} else {
-			return nil, fmt.Errorf("syslog not supported for %s", runtime.GOOS)
-		}
+		closeLog = func() { _ = f.Close() }
 	}
 	if verbose {
 		logger.Level = log.DebugLevel
 	}
-	return logger, nil
+	return logger, closeLog, nil
 }
 
 // Get the filespec for the default config file in user's home directory or /etc.

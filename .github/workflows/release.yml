@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Check tag matches appVersion
+        run: |
+          if ! grep -q "appVersion *= \"Dynip ${GITHUB_REF_NAME}\"" main.go; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match appVersion in main.go"
+            exit 1
+          fi
+
+      - run: go vet ./...
+      - run: go test ./...
+
+      - name: Build binaries
+        run: bash ./build.sh
+
+      - name: Collect assets
+        run: |
+          mkdir dist
+          cp build/*/* dist/
+          cd dist
+          sha256sum * > SHA256SUMS
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --verify-tag \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes

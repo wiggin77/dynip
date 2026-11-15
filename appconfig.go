@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/wiggin77/cfg"
+	"github.com/wiggin77/cfg/ini"
 )
 
 type configKey struct {
@@ -61,13 +63,18 @@ type AppConfig struct {
 func NewAppConfig(file string) (*AppConfig, error) {
 	config := &AppConfig{verified: false}
 
-	// create file Source using file spec and append
-	// to Config
-	src, err := cfg.NewSrcFileFromFilespec(file)
+	// Not cfg.NewSrcFileFromFilespec: it holds the file open (locking it on
+	// Windows), and its change monitor re-reads the handle from EOF, which
+	// wipes every value from the file about a minute after it is edited.
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return config, err
 	}
-	config.AppendSource(src)
+	var parsed ini.Ini
+	if err := parsed.LoadFromString(string(data)); err != nil {
+		return config, err
+	}
+	config.AppendSource(cfg.NewSrcMapFromMap(parsed.ToMap()))
 
 	// Verify all the required properties exist.
 	err = config.verify()

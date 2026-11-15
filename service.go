@@ -1,55 +1,49 @@
 package main
 
 import (
-	"flag"
-	"io"
+	"fmt"
 	"log"
-	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/kardianos/service"
 )
 
+// stopTimeout bounds how long Stop waits for an in-flight update; service
+// managers expect Stop to return within a few seconds.
+const stopTimeout = 5 * time.Second
+
 type program struct {
-	exit   chan string
-	logger *logrus.Logger
+	configFile string
+	exit       chan struct{}
+	done       chan struct{}
+	logger     *logrus.Logger
+	closeLog   func()
 }
 
 // Start is called by service manager to start the service. Don't block.
-func (p *program) Start(s service.Service) error {
+func (p *program) Start(s service.Service) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("Panic in Start: ", r)
+			err = fmt.Errorf("panic in Start: %v", r)
 		}
 	}()
 
-	p.exit = make(chan string, 2)
-
-	// get config file name
-	var file string
-	var daemon bool
-	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	fs.StringVar(&file, "f", defConfigFile(), "config file")
-	fs.BoolVar(&daemon, "d", false, "run as a daemon")
-	err := fs.Parse(os.Args[1:])
+	appConfig, err := NewAppConfig(p.configFile)
 	if err != nil {
 		return err
 	}
 
-	// load config file
-	appConfig, err := NewAppConfig(file)
+	p.logger, p.closeLog, err = configureLogging(appConfig)
 	if err != nil {
 		return err
 	}
 
-	// configure logger
-	p.logger, err = configureLogging(appConfig)
-	if err != nil {
-		return err
-	}
-
-	do := &daemonOpt{appConfig: appConfig, logger: p.logger, exit: p.exit}
+	p.exit = make(chan struct{})
+	p.done = make(chan struct{})
+	do := &daemonOpt{appConfig: appConfig, logger: p.logger, exit: p.exit, done: p.done}
 	go runDaemon(do)
 
 	return nil
@@ -58,15 +52,15 @@ func (p *program) Start(s service.Service) error {
 // Stop is called by service manager to stop the service. Don't block for more
 // than a few seconds.
 func (p *program) Stop(s service.Service) error {
-	// close the log file (if any)
-	if p.logger != nil {
-		c, ok := p.logger.Out.(io.Closer)
-		if ok {
-			_ = c.Close()
+	if p.exit != nil {
+		close(p.exit)
+		select {
+		case <-p.done:
+		case <-time.After(stopTimeout):
 		}
 	}
-	// Stop should not block. Return within a few seconds.
-	p.exit <- "service controller issued Stop command"
-	close(p.exit)
+	if p.closeLog != nil {
+		p.closeLog()
+	}
 	return nil
 }
