@@ -18,7 +18,7 @@ import (
 
 // Default config file directory and name.
 const (
-	appVersion        = "Dynip v1.0.0"
+	appVersion        = "Dynip v1.1.0"
 	defaultConfigDir  = ".config/dynip"
 	defaultConfigFile = "dynip.conf"
 )
