@@ -52,6 +52,20 @@ func TestNewAppConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("file not held open after load", func(t *testing.T) {
+		file := writeConfigFile(t, requiredProps())
+		cfg, err := NewAppConfig(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(file); err != nil {
+			t.Fatalf("config file still in use after load: %v", err)
+		}
+		if got := cfg.getKeyVal(keyUsername); got != "testuser" {
+			t.Errorf("username = %q after file removed", got)
+		}
+	})
+
 	t.Run("missing file", func(t *testing.T) {
 		_, err := NewAppConfig(filepath.Join(t.TempDir(), "nope.conf"))
 		if err == nil {
